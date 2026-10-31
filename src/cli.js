@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { detectEncounters } from './detectEncounters.js';
-import { readDataset } from './parser.js';
+import { streamDataset } from './parser.js';
 
 function printUsage() {
   console.error('Uso: node src/cli.js <entrada.txt> <saida.json>');
@@ -20,15 +20,17 @@ export function parseArguments(argumentsList) {
 }
 
 export async function processDataset(inputPath, outputPath) {
-  const records = await readDataset(resolve(inputPath));
-  const encounters = detectEncounters(records);
+  const encounters = [];
+  const recordsProcessed = await streamDataset(resolve(inputPath), async (records) => {
+    encounters.push(...detectEncounters(records));
+  });
   const resolvedOutputPath = resolve(outputPath);
 
   await mkdir(dirname(resolvedOutputPath), { recursive: true });
   await writeFile(resolvedOutputPath, `${JSON.stringify(encounters, null, 2)}\n`);
 
   return {
-    recordsProcessed: records.length,
+    recordsProcessed,
     encountersFound: encounters.length,
   };
 }

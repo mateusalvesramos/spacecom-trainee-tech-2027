@@ -22,6 +22,10 @@ npm start -- datasets\dataset1.txt outputs\dataset1.json
 O primeiro caminho é o arquivo de entrada e o segundo é o arquivo JSON de
 saída. A pasta de destino é criada automaticamente quando necessário.
 
+O processamento é feito em streaming por timestamp: o programa não carrega
+todo o dataset na memória. Os datasets oficiais estão ordenados por timestamp,
+permitindo liberar cada grupo depois de processá-lo.
+
 ## Datasets
 
 Os datasets são arquivos grandes e não fazem parte do versionamento do projeto.

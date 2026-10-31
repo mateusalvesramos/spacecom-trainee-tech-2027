@@ -1,4 +1,6 @@
+import { createReadStream } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { createInterface } from 'node:readline';
 
 const EXPECTED_HEADER = [
   'idMonitorado',
@@ -120,15 +122,31 @@ function parseRecord(fields, lineNumber) {
   };
 }
 
-export function parseDataset(content) {
-  const lines = content.split(/\r?\n/);
-  const header = splitLine(lines.shift() ?? '');
+function validateHeader(line) {
+  const header = splitLine(line ?? '');
   if (
     header.length !== EXPECTED_HEADER.length ||
     header.some((field, index) => field !== EXPECTED_HEADER[index])
   ) {
     throw new Error('cabeçalho inválido');
   }
+}
+
+function registerRecord(recordsById, record, lineNumber) {
+  const previousRecord = recordsById.get(record.id);
+  if (previousRecord && !areSameRecords(previousRecord, record)) {
+    throw new Error(
+      `linha ${lineNumber}: registros conflitantes para ID ${record.id} no timestamp ${record.timestamp}`,
+    );
+  }
+
+  if (!previousRecord) recordsById.set(record.id, record);
+  return !previousRecord;
+}
+
+export function parseDataset(content) {
+  const lines = content.split(/\r?\n/);
+  validateHeader(lines.shift());
 
   const records = [];
   const seenRecords = new Map();
@@ -140,13 +158,14 @@ export function parseDataset(content) {
     const record = parseRecord(splitLine(line), lineNumber);
     const recordKey = `${record.timestamp}:${record.id}`;
     const previousRecord = seenRecords.get(recordKey);
-    if (previousRecord && !areSameRecords(previousRecord, record)) {
-      throw new Error(
-        `linha ${lineNumber}: registros conflitantes para ID ${record.id} no timestamp ${record.timestamp}`,
-      );
+    if (previousRecord) {
+      if (!areSameRecords(previousRecord, record)) {
+        throw new Error(
+          `linha ${lineNumber}: registros conflitantes para ID ${record.id} no timestamp ${record.timestamp}`,
+        );
+      }
+      return;
     }
-
-    if (previousRecord) return;
 
     seenRecords.set(recordKey, record);
     records.push(record);
@@ -157,4 +176,50 @@ export function parseDataset(content) {
 
 export async function readDataset(filePath) {
   return parseDataset(await readFile(filePath, 'utf8'));
+}
+
+export async function streamDataset(filePath, onTimestampRecords) {
+  const input = createReadStream(filePath, { encoding: 'utf8' });
+  const lines = createInterface({ input, crlfDelay: Infinity });
+  let lineNumber = 0;
+  let currentTimestamp = null;
+  let currentRecords = new Map();
+  let recordsProcessed = 0;
+
+  try {
+    for await (const line of lines) {
+      lineNumber += 1;
+      if (lineNumber === 1) {
+        validateHeader(line);
+        continue;
+      }
+      if (line.trim() === '') continue;
+
+      const record = parseRecord(splitLine(line), lineNumber);
+      if (currentTimestamp !== null && record.timestamp < currentTimestamp) {
+        throw new Error(`timestamp fora de ordem na linha ${lineNumber}`);
+      }
+
+      if (currentTimestamp !== record.timestamp) {
+        if (currentTimestamp !== null) {
+          await onTimestampRecords([...currentRecords.values()]);
+        }
+        currentTimestamp = record.timestamp;
+        currentRecords = new Map();
+      }
+
+      if (registerRecord(currentRecords, record, lineNumber)) {
+        recordsProcessed += 1;
+      }
+    }
+
+    if (currentTimestamp !== null) {
+      await onTimestampRecords([...currentRecords.values()]);
+    }
+  } finally {
+    lines.close();
+    input.destroy();
+  }
+
+  return recordsProcessed;
 }

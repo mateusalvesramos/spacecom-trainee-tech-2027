@@ -13,6 +13,15 @@ Spacecom.
 npm test
 ```
 
+## Execução
+
+```powershell
+npm start -- datasets\dataset1.txt outputs\dataset1.json
+```
+
+O primeiro caminho é o arquivo de entrada e o segundo é o arquivo JSON de
+saída. A pasta de destino é criada automaticamente quando necessário.
+
 ## Datasets
 
 Os datasets são arquivos grandes e não fazem parte do versionamento do projeto.

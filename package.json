@@ -1,0 +1,24 @@
+{
+  "name": "spacecom-trainee-tech-2027",
+  "version": "1.0.0",
+  "description": "Technical challenge – Spacecom Trainee Tech 2027",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mateusalvesramos/spacecom-trainee-tech-2027.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/mateusalvesramos/spacecom-trainee-tech-2027/issues"
+  },
+  "homepage": "https://github.com/mateusalvesramos/spacecom-trainee-tech-2027#readme"
+}

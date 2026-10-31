@@ -16,6 +16,13 @@ test('rejeita quantidade incorreta de argumentos', () => {
   assert.throws(() => parseArguments([]), /informe o caminho/);
 });
 
+test('rejeita arquivo de entrada inexistente', async () => {
+  await assert.rejects(
+    () => processDataset('arquivo-inexistente.txt', 'saida.json'),
+    /ENOENT/,
+  );
+});
+
 test('processa o input e grava o JSON de saída', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'spacecom-'));
   const inputPath = join(directory, 'input.txt');

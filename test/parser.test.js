@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseDataset } from '../src/parser.js';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { parseDataset, streamDataset } from '../src/parser.js';
 
 const header =
   'idMonitorado;faccaoMonitorado;timestamp;latitude;longitude;medidaProtetiva;idsRestricaoMedida';
@@ -56,4 +59,37 @@ test('rejeita registros conflitantes no mesmo ID e timestamp', () => {
 1;;"2024-01-01 00:00:00";0;0;false;
 1;;"2024-01-01 00:00:00";0;0.00001;false;`;
   assert.throws(() => parseDataset(input), /registros conflitantes/);
+});
+
+test('rejeita timestamps fora de ordem no streaming', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'spacecom-'));
+  const inputPath = join(directory, 'input.txt');
+  const input = `${header}
+1;;"2024-01-01 00:00:05";0;0;false;
+2;;"2024-01-01 00:00:00";0;0;false;`;
+
+  await writeFile(inputPath, input);
+
+  await assert.rejects(
+    () => streamDataset(inputPath, async () => {}),
+    /timestamp fora de ordem/,
+  );
+});
+
+test('processa o último grupo no streaming', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'spacecom-'));
+  const inputPath = join(directory, 'input.txt');
+  const input = `${header}
+1;;"2024-01-01 00:00:00";0;0;false;
+2;;"2024-01-01 00:00:00";0;0.00005;false;`;
+  const groups = [];
+
+  await writeFile(inputPath, input);
+  const recordsProcessed = await streamDataset(inputPath, async (records) => {
+    groups.push(records);
+  });
+
+  assert.equal(recordsProcessed, 2);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].map(({ id }) => id), [1, 2]);
 });

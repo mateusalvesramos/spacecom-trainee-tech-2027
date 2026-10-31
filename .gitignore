@@ -149,3 +149,6 @@ vite.config.ts.timestamp-*
 .turbo
 
 docs/
+
+# Challenge datasets (large files downloaded locally)
+datasets/
